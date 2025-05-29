@@ -6,6 +6,20 @@ function error() {
   echo "$@" >&2
 }
 
+# Функция проверки статуса node-группы
+function check_node_group_status() {
+  local node_group_id="$1"
+  local status
+  status=$(yc managed-kubernetes node-group get --id "$node_group_id" --format json | jq -r '.status')
+
+  if [[ "$status" == "RUNNING" ]]; then
+    return 0
+  else
+    echo "Node group $node_group_id has status $status, skipping" >&2
+    return 1
+  fi
+}
+
 # Пытаемся получить folder-id из конфигурации yc
 folder_id_from_config=$(yc config get folder-id 2>/dev/null || true)
 
@@ -17,7 +31,7 @@ elif [[ -n "${FOLDER_ID:-}" ]]; then
   :
 else
   # Если folder-id ни в конфиге, ни в окружении не найден — выходим с ошибкой
-  echo "Error: folder-id is not set neither in yc config nor environment variable FOLDER_ID" >&2
+  echo "Error: folder-id not found in yc config or environment variables" >&2
   exit 1
 fi
 
@@ -37,6 +51,12 @@ fi
 for ((i=0; i<groups_count; i++)); do
   node_group=$(echo "$node_groups_json" | jq ".[$i]")
   node_group_id=$(echo "$node_group" | jq -r ".id")
+
+  # Проверяем статус node-группы
+  if ! check_node_group_status "$node_group_id"; then
+    continue
+  fi
+
   instance_group_id=$(echo "$node_group" | jq -r ".instance_group_id")
 
   # Берём метки из поля "labels" node-группы
@@ -71,7 +91,7 @@ for ((i=0; i<groups_count; i++)); do
   # Копируем метки в node_labels node-группы
   echo "  Adding labels $label_str to node group $node_group_id..."
   yc managed-kubernetes node-group add-node-labels --folder-id "$FOLDER_ID" --id "$node_group_id" --labels "$label_str" >/dev/null 2>&1
-  echo "  Labels added to node group $node_group_id"
+  echo "  [+]Labels added to node group $node_group_id"
 
   # Копируем метки на каждую ВМ и ее загрузочный диск
   for ((j=0; j<instances_count; j++)); do
@@ -80,7 +100,7 @@ for ((i=0; i<groups_count; i++)); do
 
     echo "  Adding labels $label_str to instance $instance_name (id $instance_id)..."
     yc compute instance add-labels --folder-id "$FOLDER_ID" --id "$instance_id" --labels "$label_str" >/dev/null 2>&1
-    echo "  Labels added to instance $instance_name"
+    echo "  [+]Labels added to instance $instance_name"
 
     # Получаем id загрузочного диска ВМ
     boot_disk_id=$(yc compute instance get --folder-id "$FOLDER_ID" --id "$instance_id" --format json | jq -r '.boot_disk.disk_id')
@@ -88,7 +108,7 @@ for ((i=0; i<groups_count; i++)); do
     if [[ -n "$boot_disk_id" && "$boot_disk_id" != "null" ]]; then
       echo "  Adding labels $label_str to disk $boot_disk_id..."
       yc compute disk add-labels --folder-id "$FOLDER_ID" --id "$boot_disk_id" --labels "$label_str" >/dev/null 2>&1
-      echo "  Labels added to disk $boot_disk_id"
+      echo "  [+]Labels added to disk $boot_disk_id"
     else
       echo "  Boot disk not found for instance $instance_name ($instance_id)"
     fi
