@@ -1,0 +1,30 @@
+# Local .terraform directories
+**/.terraform/*
+# Lock file
+.terraform.lock.hcl
+
+# .tfstate files
+*.tfstate
+*.tfstate.*backup
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Exclude all .tfvars files, sensitive data should not be committed
+*.tfvars
+*.tfvars.json
+
+# Ignore override files as they are usually used for local testing or development
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
+# example: *tfplan*
+*.tfplan
+
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
