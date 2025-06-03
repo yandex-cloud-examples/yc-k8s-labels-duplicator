@@ -142,17 +142,16 @@ function process_node_group() {
 
 # Пытаемся получить folder-id из конфигурации yc
 folder_id_from_config=$(yc config get folder-id 2>/dev/null || true)
-FOLDER_ID="" # Initialize FOLDER_ID
 
 if [[ -n "$folder_id_from_config" ]]; then
   # Используем folder-id из yc config
   FOLDER_ID="$folder_id_from_config"
-elif [[ -n "${FOLDER_ID_ENV:-}" ]]; then # Check a differently named env var to avoid conflict if script is sourced
-  # Используем переменную окружения FOLDER_ID_ENV
-  FOLDER_ID="$FOLDER_ID_ENV"
+elif [[ -n "${FOLDER_ID:-}" ]]; then
+  # Используем переменную окружения FOLDER_ID
+  :
 else
   # Если folder-id ни в конфиге, ни в окружении не найден — выходим с ошибкой
-  error "folder-id not found in yc config or FOLDER_ID_ENV environment variable"
+  error "folder-id not found in yc config or FOLDER_ID environment variable"
   exit 1
 fi
 
